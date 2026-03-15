@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide CarouselController;
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import '../viewmodels/cart_view_model.dart';
 import '../viewmodels/home_view_model.dart';
 import '../widgets/product_card.dart';
 
@@ -16,6 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey _searchKey = GlobalKey();
+  bool _isAutoPrefetching = false;
   int _currentBannerIndex = 0;
   bool _isAppBarPinned = false;
 
@@ -44,31 +46,75 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(() {
-      if (_scrollController.offset > 50 && !_isAppBarPinned) {
-        setState(() => _isAppBarPinned = true);
-      } else if (_scrollController.offset <= 50 && _isAppBarPinned) {
-        setState(() => _isAppBarPinned = false);
-      }
+    _scrollController.addListener(_onScroll);
 
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-        context.read<HomeViewModel>().fetchProducts();
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureInitialScrollableContent();
     });
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!mounted || !_scrollController.hasClients) return;
+
+    if (_scrollController.offset > 50 && !_isAppBarPinned) {
+      setState(() => _isAppBarPinned = true);
+    } else if (_scrollController.offset <= 50 && _isAppBarPinned) {
+      setState(() => _isAppBarPinned = false);
+    }
+
+    final position = _scrollController.position;
+    const preloadThreshold = 300.0;
+    final shouldLoadMore = position.pixels >= position.maxScrollExtent - preloadThreshold;
+    if (shouldLoadMore) {
+      _loadMoreProducts();
+    }
+  }
+
+  Future<void> _loadMoreProducts() async {
+    if (!mounted) return;
+    await context.read<HomeViewModel>().fetchProducts();
+  }
+
+  Future<void> _ensureInitialScrollableContent() async {
+    if (!mounted || _isAutoPrefetching) return;
+    if (!_scrollController.hasClients) return;
+
+    _isAutoPrefetching = true;
+    try {
+      final viewModel = context.read<HomeViewModel>();
+      var attempts = 0;
+
+      while (mounted && attempts < 3) {
+        if (viewModel.isLoading || !viewModel.hasMore) break;
+        if (_scrollController.position.maxScrollExtent > 0) break;
+
+        attempts++;
+        await viewModel.fetchProducts();
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+    } finally {
+      _isAutoPrefetching = false;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: RefreshIndicator(
-        onRefresh: () => context.read<HomeViewModel>().fetchProducts(isRefresh: true),
+        onRefresh: () async {
+          await context.read<HomeViewModel>().fetchProducts(isRefresh: true);
+          if (mounted) {
+            await _ensureInitialScrollableContent();
+          }
+        },
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
@@ -160,33 +206,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCartIcon() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        IconButton(
-          onPressed: () {
-            // Navigator.pushNamed(context, '/cart');
-          },
-          icon: const Icon(Icons.shopping_cart, color: Colors.white),
-        ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(10),
+    return Consumer<CartViewModel>(
+      builder: (context, cartViewModel, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/cart');
+              },
+              icon: const Icon(Icons.shopping_cart, color: Colors.white),
             ),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            child: const Text(
-              '3',
-              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ],
+            if (cartViewModel.totalItems > 0)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  child: Text(
+                    '${cartViewModel.totalItems}',
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -226,36 +277,85 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCategoryGrid() {
-    return Container(
-      height: 200,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: GridView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 1.2,
-        ),
-        itemCount: _categories.length,
-        itemBuilder: (context, index) {
-          return Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+
+        final contentMaxWidth = width >= 1400
+            ? 1280.0
+            : width >= 1100
+                ? 1040.0
+                : width;
+
+        int crossAxisCount;
+        if (width >= 1200) {
+          crossAxisCount = 6;
+        } else if (width >= 900) {
+          crossAxisCount = 5;
+        } else if (width >= 700) {
+          crossAxisCount = 4;
+        } else {
+          crossAxisCount = 3;
+        }
+
+        const spacing = 12.0;
+        final effectiveWidth = contentMaxWidth - 32;
+        final itemWidth = (effectiveWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
+        final iconBoxSize = (itemWidth * 0.58).clamp(34.0, 62.0).toDouble();
+        final iconSize = (iconBoxSize * 0.52).clamp(16.0, 28.0).toDouble();
+        final categoryFontSize = width >= 1100 ? 13.0 : width >= 760 ? 12.0 : 11.0;
+        final rows = (_categories.length / crossAxisCount).ceil();
+        final sectionHeight = rows * 96.0 + (rows - 1) * spacing + 20;
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: contentMaxWidth),
+            child: SizedBox(
+              height: sectionHeight,
+              child: GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisSpacing: spacing,
+                  crossAxisSpacing: spacing,
+                  childAspectRatio: itemWidth / 96.0,
                 ),
-                child: Icon(_categories[index]['icon'], color: Colors.orange),
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: iconBoxSize,
+                        height: iconBoxSize,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(iconBoxSize * 0.28),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          _categories[index]['icon'],
+                          color: Colors.orange,
+                          size: iconSize,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _categories[index]['name'],
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: categoryFontSize),
+                      ),
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 4),
-              Text(_categories[index]['name'], style: const TextStyle(fontSize: 11)),
-            ],
-          );
-        },
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -274,19 +374,58 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildProductGrid() {
     return Consumer<HomeViewModel>(
       builder: (context, viewModel, child) {
+        if (viewModel.products.isEmpty && viewModel.errorMessage != null) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                viewModel.errorMessage!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          );
+        }
+
         return SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.7,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => ProductCard(product: viewModel.products[index]),
-              childCount: viewModel.products.length,
-            ),
+          sliver: SliverLayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.crossAxisExtent;
+
+              int crossAxisCount;
+              if (width >= 1400) {
+                crossAxisCount = 6;
+              } else if (width >= 1100) {
+                crossAxisCount = 5;
+              } else if (width >= 850) {
+                crossAxisCount = 4;
+              } else if (width >= 620) {
+                crossAxisCount = 3;
+              } else {
+                crossAxisCount = 2;
+              }
+
+              final itemWidth = (width - (crossAxisCount - 1) * 8) / crossAxisCount;
+              final targetItemHeight = itemWidth < 180
+                  ? 320.0
+                  : itemWidth < 230
+                      ? 340.0
+                      : 360.0;
+              final childAspectRatio = itemWidth / targetItemHeight;
+
+              return SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  childAspectRatio: childAspectRatio,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => ProductCard(product: viewModel.products[index]),
+                  childCount: viewModel.products.length,
+                ),
+              );
+            },
           ),
         );
       },
