@@ -277,85 +277,36 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCategoryGrid() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-
-        final contentMaxWidth = width >= 1400
-            ? 1280.0
-            : width >= 1100
-                ? 1040.0
-                : width;
-
-        int crossAxisCount;
-        if (width >= 1200) {
-          crossAxisCount = 6;
-        } else if (width >= 900) {
-          crossAxisCount = 5;
-        } else if (width >= 700) {
-          crossAxisCount = 4;
-        } else {
-          crossAxisCount = 3;
-        }
-
-        const spacing = 12.0;
-        final effectiveWidth = contentMaxWidth - 32;
-        final itemWidth = (effectiveWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
-        final iconBoxSize = (itemWidth * 0.58).clamp(34.0, 62.0).toDouble();
-        final iconSize = (iconBoxSize * 0.52).clamp(16.0, 28.0).toDouble();
-        final categoryFontSize = width >= 1100 ? 13.0 : width >= 760 ? 12.0 : 11.0;
-        final rows = (_categories.length / crossAxisCount).ceil();
-        final sectionHeight = rows * 96.0 + (rows - 1) * spacing + 20;
-
-        return Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: contentMaxWidth),
-            child: SizedBox(
-              height: sectionHeight,
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  mainAxisSpacing: spacing,
-                  crossAxisSpacing: spacing,
-                  childAspectRatio: itemWidth / 96.0,
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: GridView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: 1.2,
+        ),
+        itemCount: _categories.length,
+        itemBuilder: (context, index) {
+          return Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  return Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: iconBoxSize,
-                        height: iconBoxSize,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(iconBoxSize * 0.28),
-                        ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          _categories[index]['icon'],
-                          color: Colors.orange,
-                          size: iconSize,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _categories[index]['name'],
-                        maxLines: 2,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: categoryFontSize),
-                      ),
-                    ],
-                  );
-                },
+                child: Icon(_categories[index]['icon'], color: Colors.orange),
               ),
-            ),
-          ),
-        );
-      },
+              const SizedBox(height: 4),
+              Text(_categories[index]['name'], style: const TextStyle(fontSize: 11)),
+            ],
+          );
+        },
+      ),
     );
   }
 
