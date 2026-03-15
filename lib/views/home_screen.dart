@@ -67,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF3EFE8),
       body: RefreshIndicator(
         onRefresh: () => context.read<HomeViewModel>().fetchProducts(isRefresh: true),
         child: CustomScrollView(
@@ -87,14 +88,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildAppBar() {
     return SliverAppBar(
       pinned: true,
-      expandedHeight: 120, // Tăng lên để đủ chỗ cho tiêu đề định danh
-      toolbarHeight: 90,   // Tăng để chứa 2 dòng: Tiêu đề và SearchBar
-      backgroundColor: _isAppBarPinned ? Colors.orange : Colors.orange.withValues(alpha: 0.1),
+      expandedHeight: 120,
+      toolbarHeight: 90,
+      backgroundColor: _isAppBarPinned ? Colors.orange : Colors.transparent,
       elevation: 0,
       titleSpacing: 0,
       title: Column(
         children: [
-          // Dòng 1: Định danh nhóm (Yêu cầu bắt buộc)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
@@ -112,17 +112,16 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          // Dòng 2: Thanh tìm kiếm
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
-            child: Container(
-              height: 40,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 260),
+              height: 44,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
+                color: _isAppBarPinned ? Colors.orange.withOpacity(0.95) : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
                 boxShadow: [
-                  if (!_isAppBarPinned)
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)
+                  if (_isAppBarPinned) BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6, offset: Offset(0, 2)),
                 ],
               ),
               child: TextField(
@@ -131,14 +130,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 textAlignVertical: TextAlignVertical.center,
                 autocorrect: false,
                 enableSuggestions: false,
-                style: const TextStyle(fontSize: 14, color: Colors.black),
-                decoration: const InputDecoration(
+                style: TextStyle(fontSize: 14, color: _isAppBarPinned ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
                   isDense: true,
                   hintText: 'Tìm kiếm sản phẩm...',
-                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
-                  prefixIcon: Icon(Icons.search, color: Colors.grey, size: 20),
+                  hintStyle: TextStyle(fontSize: 13, color: _isAppBarPinned ? Colors.white70 : Colors.grey),
+                  prefixIcon: Icon(Icons.search, color: _isAppBarPinned ? Colors.white : Colors.grey, size: 20),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                 ),
               ),
             ),
@@ -147,9 +146,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
-          decoration: BoxDecoration(
+              decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.orange, Colors.orange.withValues(alpha: 0.8)],
+              colors: [Colors.orange, Colors.orange.withValues(alpha: 0.85)],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -160,34 +159,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCartIcon() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        IconButton(
-          onPressed: () {
-            // Navigator.pushNamed(context, '/cart');
-          },
-          icon: const Icon(Icons.shopping_cart, color: Colors.white),
-        ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            child: const Text(
-              '3',
-              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
+    return Consumer<HomeViewModel>(builder: (context, vm, child) {
+      final count = vm.cartCount;
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          IconButton(
+            onPressed: () {
+              // Navigator.pushNamed(context, '/cart');
+            },
+            icon: const Icon(Icons.shopping_cart, color: Colors.white),
           ),
-        ),
-      ],
-    );
+          if (count > 0)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                child: Text(
+                  count > 99 ? '99+' : '$count',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      );
+    });
   }
 
   Widget _buildBannerCarousel() {
@@ -195,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         CarouselSlider(
           options: CarouselOptions(
-            height: 180,
+            height: 200,
             autoPlay: true,
             viewportFraction: 1.0,
             onPageChanged: (index, reason) {
@@ -205,7 +208,35 @@ class _HomeScreenState extends State<HomeScreen> {
           items: _banners.map((url) {
             return Builder(
               builder: (BuildContext context) {
-                return Image.network(url, fit: BoxFit.cover, width: MediaQuery.of(context).size.width);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(url, fit: BoxFit.cover, width: MediaQuery.of(context).size.width),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [Colors.black.withValues(alpha: 0.18), Colors.transparent], begin: Alignment.bottomCenter, end: Alignment.topCenter),
+                          ),
+                        ),
+                        Positioned(
+                          left: 18,
+                          bottom: 18,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Text('KHUYẾN MÃI XUÂN', style: TextStyle(color: Colors.white70, letterSpacing: 1.5, fontSize: 12)),
+                              SizedBox(height: 6),
+                              Text('Mang mùa xuân vào từng bước chân', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               },
             );
           }).toList(),
@@ -217,13 +248,15 @@ class _HomeScreenState extends State<HomeScreen> {
           effect: const ScrollingDotsEffect(
             dotWidth: 8,
             dotHeight: 8,
-            activeDotColor: Colors.orange,
+            activeDotColor: Colors.black,
             dotColor: Colors.grey,
           ),
         ),
       ],
     );
   }
+
+
 
   Widget _buildCategoryGrid() {
     return Container(

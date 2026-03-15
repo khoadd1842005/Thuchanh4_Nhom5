@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'viewmodels/home_view_model.dart';
 import 'views/home_screen.dart';
+import 'views/details/product_detail_screen.dart';
+import 'models/product.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -23,11 +25,21 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         // Cấu hình Named Routes cho cả nhóm
         initialRoute: '/',
-        routes: {
-          '/': (context) => const HomeScreen(),
-          // Các thành viên khác sẽ đăng ký route ở đây
-          // '/product_detail': (context) => const ProductDetailScreen(),
-          // '/cart': (context) => const CartScreen(),
+        // Use onGenerateRoute to allow passing arguments (e.g. Product) to detail screens
+        onGenerateRoute: (settings) {
+          if (settings.name == '/') return MaterialPageRoute(builder: (_) => const HomeScreen());
+
+          if (settings.name == '/product_detail') {
+            final args = settings.arguments;
+            if (args is Product) {
+              return MaterialPageRoute(builder: (_) => ProductDetailScreen(product: args));
+            }
+            // If no product passed, fallback to HomeScreen
+            return MaterialPageRoute(builder: (_) => const HomeScreen());
+          }
+
+          // Add other named routes here or fallback
+          return MaterialPageRoute(builder: (_) => const HomeScreen());
         },
       ),
     );

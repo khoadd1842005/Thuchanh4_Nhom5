@@ -6,10 +6,18 @@ class HomeViewModel extends ChangeNotifier {
   bool _isLoading = false;
   int _currentPage = 1;
   bool _hasMore = true;
+  int _cartCount = 0;
 
   List<Product> get products => _products;
   bool get isLoading => _isLoading;
   bool get hasMore => _hasMore;
+  int get cartCount => _cartCount;
+
+  void addToCart(Product product, {int quantity = 1}) {
+    // For demo we only track number of distinct additions (quantity aggregated)
+    _cartCount += quantity;
+    notifyListeners();
+  }
 
   Future<void> fetchProducts({bool isRefresh = false}) async {
     if (_isLoading) return;
