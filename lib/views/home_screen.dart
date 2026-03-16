@@ -287,25 +287,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? 1040.0
                 : width;
 
-        int crossAxisCount;
-        if (width >= 1200) {
-          crossAxisCount = 6;
-        } else if (width >= 900) {
-          crossAxisCount = 5;
-        } else if (width >= 700) {
-          crossAxisCount = 4;
-        } else {
-          crossAxisCount = 3;
-        }
-
-        const spacing = 12.0;
-        final effectiveWidth = contentMaxWidth - 32;
-        final itemWidth = (effectiveWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
-        final iconBoxSize = (itemWidth * 0.58).clamp(34.0, 62.0).toDouble();
+        const crossAxisCount = 2;
+        const spacing = 10.0;
+        final iconBoxSize = (width * 0.11).clamp(34.0, 56.0).toDouble();
         final iconSize = (iconBoxSize * 0.52).clamp(16.0, 28.0).toDouble();
         final categoryFontSize = width >= 1100 ? 13.0 : width >= 760 ? 12.0 : 11.0;
-        final rows = (_categories.length / crossAxisCount).ceil();
-        final sectionHeight = rows * 96.0 + (rows - 1) * spacing + 20;
+        final sectionHeight = iconBoxSize * 2 + 76 + spacing;
 
         return Center(
           child: ConstrainedBox(
@@ -313,13 +300,14 @@ class _HomeScreenState extends State<HomeScreen> {
             child: SizedBox(
               height: sectionHeight,
               child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossAxisCount,
                   mainAxisSpacing: spacing,
                   crossAxisSpacing: spacing,
-                  childAspectRatio: itemWidth / 96.0,
+                  childAspectRatio: 1.05,
                 ),
                 itemCount: _categories.length,
                 itemBuilder: (context, index) {
