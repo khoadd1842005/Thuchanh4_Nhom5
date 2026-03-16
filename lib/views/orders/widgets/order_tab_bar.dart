@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 
 class OrderTabBar extends StatelessWidget {
-  final TabController tabController;
-
-  const OrderTabBar({super.key, required this.tabController});
+  const OrderTabBar({super.key});
 
   @override
   Widget build(BuildContext context) {
     return TabBar(
-      controller: tabController,
       isScrollable: true,
       labelColor: Colors.white,
       unselectedLabelColor: Colors.white,

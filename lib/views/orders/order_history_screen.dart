@@ -13,48 +13,35 @@ class OrderHistoryScreen extends StatefulWidget {
   State<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
 }
 
-class _OrderHistoryScreenState extends State<OrderHistoryScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
+class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lịch sử đơn hàng'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: OrderTabBar(tabController: _tabController),
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Lịch sử đơn hàng'),
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(48),
+            child: OrderTabBar(),
+          ),
         ),
-      ),
-      body: Consumer<OrderProvider>(
-        builder: (context, orderProvider, child) {
-          if (orderProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+        body: Consumer<OrderProvider>(
+          builder: (context, orderProvider, child) {
+            if (orderProvider.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          return TabBarView(
-            controller: _tabController,
-            children: const [
-              _OrderListTab(status: OrderStatus.pending),
-              _OrderListTab(status: OrderStatus.delivering),
-              _OrderListTab(status: OrderStatus.delivered),
-              _OrderListTab(status: OrderStatus.cancelled),
-            ],
-          );
-        },
+            return const TabBarView(
+              children: [
+                _OrderListTab(status: OrderStatus.pending),
+                _OrderListTab(status: OrderStatus.delivering),
+                _OrderListTab(status: OrderStatus.delivered),
+                _OrderListTab(status: OrderStatus.cancelled),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
