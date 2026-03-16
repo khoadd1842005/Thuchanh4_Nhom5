@@ -7,6 +7,7 @@ import 'views/cart/cart_screen.dart';
 import 'views/home_screen.dart';
 import 'views/details/product_detail_screen.dart';
 import 'views/checkout/checkout_screen.dart';
+import 'views/orders/order_history_screen.dart';
 import 'models/product.dart';
 import 'theme/app_theme.dart';
 
@@ -23,7 +24,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => HomeViewModel()..fetchProducts(isRefresh: true)),
         ChangeNotifierProvider(create: (_) => CartProvider()..loadCart()),
-        ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(create: (_) => OrderProvider()..loadOrders()),
       ],
       child: MaterialApp(
         title: 'Thuchanh4',
@@ -39,6 +40,10 @@ class MyApp extends StatelessWidget {
 
           if (settings.name == '/checkout') {
             return MaterialPageRoute(builder: (_) => const CheckoutScreen());
+          }
+
+          if (settings.name == '/orders') {
+            return MaterialPageRoute(builder: (_) => const OrderHistoryScreen());
           }
 
           if (settings.name == '/product_detail') {

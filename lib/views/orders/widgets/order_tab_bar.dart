@@ -10,8 +10,8 @@ class OrderTabBar extends StatelessWidget {
     return TabBar(
       controller: tabController,
       isScrollable: true,
-      labelColor: Colors.orange,
-      unselectedLabelColor: Colors.grey,
+      labelColor: Colors.white,
+      unselectedLabelColor: Colors.white,
       indicatorColor: Colors.orange,
       tabs: const [
         Tab(text: 'Chờ xác nhận'),

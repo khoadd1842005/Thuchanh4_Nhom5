@@ -185,10 +185,11 @@ class ProductCard extends StatelessWidget {
 
   Future<void> _showAddToCartSheet(BuildContext context) async {
     final hasSizeOptions = product.sizes.isNotEmpty;
-    final hasColorOptions = product.colors.isNotEmpty;
+    final hasColorOptions = product.colors.isNotEmpty && !_isFoodCategory(product.category);
 
-    String? selectedSize = hasSizeOptions && product.sizes.length == 1 ? product.sizes.first : null;
+    String? selectedSize = hasSizeOptions && product.sizes.length == 1 ? product.sizes.first : 'Mặc định';
     String? selectedColor = hasColorOptions && product.colors.length == 1 ? product.colors.first : null;
+    int quantity = 1;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -197,6 +198,9 @@ class ProductCard extends StatelessWidget {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final selectedSizeValue = selectedSize ?? 'Mặc định';
+            final selectedUnitPrice = product.priceForVariant(selectedSizeValue);
+            final currency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
             return Padding(
               padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: MediaQuery.of(context).viewInsets.bottom + 16),
               child: Column(
@@ -223,7 +227,7 @@ class ProductCard extends StatelessWidget {
                           children: [
                             Text(product.name, maxLines: 2, style: const TextStyle(fontWeight: FontWeight.bold)),
                             const SizedBox(height: 4),
-                            Text(NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(product.price),
+                            Text(currency.format(selectedUnitPrice),
                                 style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18)),
                           ],
                         ),
@@ -253,7 +257,42 @@ class ProductCard extends StatelessWidget {
                         onSelected: (_) => setModalState(() => selectedColor = c),
                       )).toList(),
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Đã chọn màu: ${selectedColor ?? 'Chưa chọn'}',
+                      style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                    ),
                   ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text('Số lượng', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              onPressed: () => setModalState(() {
+                                quantity = quantity > 1 ? quantity - 1 : 1;
+                              }),
+                              icon: const Icon(Icons.remove),
+                            ),
+                            Text('$quantity', style: const TextStyle(fontWeight: FontWeight.w600)),
+                            IconButton(
+                              onPressed: () => setModalState(() {
+                                quantity += 1;
+                              }),
+                              icon: const Icon(Icons.add),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
@@ -266,8 +305,10 @@ class ProductCard extends StatelessWidget {
                         }
                         context.read<CartProvider>().addToCart(
                           product: product,
-                          size: selectedSize ?? 'Mặc định',
+                          size: selectedSizeValue,
                           color: selectedColor ?? 'Mặc định',
+                          unitPrice: selectedUnitPrice,
+                          quantity: quantity,
                         );
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã thêm vào giỏ hàng!'), backgroundColor: Colors.green));
@@ -282,5 +323,13 @@ class ProductCard extends StatelessWidget {
         );
       },
     );
+  }
+
+  bool _isFoodCategory(String category) {
+    final normalized = category.toLowerCase();
+    return normalized.contains('groceries') ||
+        normalized.contains('food') ||
+        normalized.contains('drink') ||
+        normalized.contains('beverage');
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide CarouselController;
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import '../viewmodels/cart_provider.dart';
 import '../viewmodels/home_view_model.dart';
 import '../widgets/product_card.dart';
@@ -19,12 +20,13 @@ class _HomeScreenState extends State<HomeScreen> {
   
   // TỐI ƯU: Dùng ValueNotifier thay vì setState để tránh rebuild toàn màn hình khi cuộn
   final ValueNotifier<bool> _isAppBarPinnedNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<int> _currentBannerIndexNotifier = ValueNotifier<int>(0);
 
   final List<String> _banners = [
-    'https://picsum.photos/800/400?random=11',
-    'https://picsum.photos/800/400?random=12',
-    'https://picsum.photos/800/400?random=13',
-    'https://picsum.photos/800/400?random=14',
+    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1800&q=80',
+    'https://images.unsplash.com/photo-1607082350899-7e105aa886ae?auto=format&fit=crop&w=1800&q=80',
+    'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1800&q=80',
+    'https://images.unsplash.com/photo-1611078489935-0cb964de46d6?auto=format&fit=crop&w=1800&q=80',
   ];
 
   final List<Map<String, dynamic>> _categories = [
@@ -67,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController.dispose();
     _searchController.dispose();
     _isAppBarPinnedNotifier.dispose();
+    _currentBannerIndexNotifier.dispose();
     super.dispose();
   }
 
@@ -102,8 +105,9 @@ class _HomeScreenState extends State<HomeScreen> {
         return SliverAppBar(
           pinned: true,
           expandedHeight: 130,
-          backgroundColor: isPinned ? Colors.orange : Colors.orange.withValues(alpha: 0.1),
+          backgroundColor: isPinned ? Colors.orange : Colors.orange.withValues(alpha: 0.4),
           elevation: isPinned ? 2 : 0,
+          scrolledUnderElevation: 2,
           title: Text(
             'TH4 - Nhóm 5',
             style: TextStyle(
@@ -112,7 +116,11 @@ class _HomeScreenState extends State<HomeScreen> {
               fontSize: 18
             ),
           ),
-          actions: [_buildCartIcon(), const SizedBox(width: 8)],
+          actions: [
+            _buildOrderHistoryIcon(iconColor: isPinned ? Colors.white : Colors.orange),
+            _buildCartIcon(iconColor: isPinned ? Colors.white : Colors.orange),
+            const SizedBox(width: 8),
+          ],
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(60),
             child: Padding(
@@ -147,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCartIcon() {
+  Widget _buildCartIcon({required Color iconColor}) {
     return Consumer<CartProvider>(
       builder: (context, cart, child) {
         return Stack(
@@ -155,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             IconButton(
               onPressed: () => Navigator.pushNamed(context, '/cart'),
-              icon: const Icon(Icons.shopping_cart, color: Colors.white),
+              icon: Icon(Icons.shopping_cart, color: iconColor),
             ),
             if (cart.items.isNotEmpty)
               Positioned(
@@ -177,21 +185,52 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildOrderHistoryIcon({required Color iconColor}) {
+    return IconButton(
+      onPressed: () => Navigator.pushNamed(context, '/orders'),
+      icon: Icon(Icons.receipt_long, color: iconColor),
+      tooltip: 'Lịch sử đơn hàng',
+    );
+  }
+
   Widget _buildBannerCarousel() {
-    // TỐI ƯU: Tránh dùng Column lồng nhau phức tạp
-    return CarouselSlider(
-      options: CarouselOptions(
-        height: 160,
-        autoPlay: true,
-        viewportFraction: 0.9,
-        enlargeCenterPage: true,
-      ),
-      items: _banners.map((url) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(url, fit: BoxFit.cover, width: double.infinity),
-        );
-      }).toList(),
+    return Column(
+      children: [
+        CarouselSlider(
+          options: CarouselOptions(
+            height: 160,
+            autoPlay: true,
+            viewportFraction: 0.9,
+            enlargeCenterPage: true,
+            onPageChanged: (index, reason) {
+              _currentBannerIndexNotifier.value = index;
+            },
+          ),
+          items: _banners.map((url) {
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(url, fit: BoxFit.cover, width: double.infinity),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 10),
+        ValueListenableBuilder<int>(
+          valueListenable: _currentBannerIndexNotifier,
+          builder: (context, activeIndex, child) {
+            return AnimatedSmoothIndicator(
+              activeIndex: activeIndex,
+              count: _banners.length,
+              effect: WormEffect(
+                dotWidth: 8,
+                dotHeight: 8,
+                spacing: 6,
+                dotColor: Colors.grey.shade400,
+                activeDotColor: Colors.orange,
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 

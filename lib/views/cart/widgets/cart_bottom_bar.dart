@@ -58,7 +58,11 @@ class CartBottomBar extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               FilledButton(
-                onPressed: cartProvider.selectedItemsCount == 0 ? null : () {},
+                onPressed: cartProvider.selectedItemsCount == 0
+                    ? null
+                    : () {
+                        Navigator.pushNamed(context, '/checkout');
+                      },
                 child: Text('Mua (${cartProvider.selectedItemsCount})'),
               ),
             ],

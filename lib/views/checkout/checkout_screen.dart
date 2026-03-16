@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
+import '../../models/cart_item.dart';
 import '../../viewmodels/cart_provider.dart';
 import '../../viewmodels/order_provider.dart';
 
@@ -17,6 +19,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  bool _isPlacingOrder = false;
+
+  static const double _shippingFee = 30000;
+  static const double _discountAmount = 10000;
 
   @override
   void dispose() {
@@ -29,7 +35,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cartProvider = context.watch<CartProvider>();
+    final selectedItems = cartProvider.selectedItems;
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+
+    if (selectedItems.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Thanh toán')),
+        body: const Center(
+          child: Text('Không có sản phẩm nào được chọn để thanh toán.'),
+        ),
+      );
+    }
+
+    final subtotal = selectedItems.fold<double>(
+      0,
+      (sum, item) => sum + (item.unitPrice * item.quantity),
+    );
+    final totalPayment = subtotal + _shippingFee - _discountAmount;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Thanh toán')),
@@ -87,17 +109,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 24),
               const Text('Tóm tắt đơn hàng', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const Divider(),
-              ...cartProvider.selectedItems.map((item) => ListTile(
+              ...selectedItems.map((item) => ListTile(
                 title: Text(item.product.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                 subtitle: Text('${item.selectedSize} | ${item.selectedColor} x${item.quantity}'),
-                trailing: Text(currencyFormat.format(item.product.price * item.quantity)),
+                trailing: Text(currencyFormat.format(item.unitPrice * item.quantity)),
               )),
               const Divider(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Tổng thanh toán', style: TextStyle(fontSize: 16)),
-                  Text(currencyFormat.format(cartProvider.totalPrice), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red)),
+                  const Text('Tổng tiền hàng', style: TextStyle(fontSize: 15)),
+                  Text(currencyFormat.format(subtotal)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Phí vận chuyển', style: TextStyle(fontSize: 15)),
+                  Text(currencyFormat.format(_shippingFee)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Giảm giá', style: TextStyle(fontSize: 15)),
+                  Text('-${currencyFormat.format(_discountAmount)}', style: const TextStyle(color: Colors.green)),
+                ],
+              ),
+              const Divider(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Tổng thanh toán', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(currencyFormat.format(totalPayment), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red)),
                 ],
               ),
               const SizedBox(height: 32),
@@ -105,9 +151,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () => _handlePlaceOrder(context),
+                  onPressed: _isPlacingOrder
+                      ? null
+                      : () => _handlePlaceOrder(
+                            context,
+                            selectedItems,
+                            totalPayment,
+                          ),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
-                  child: const Text('ĐẶT HÀNG', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: _isPlacingOrder
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('ĐẶT HÀNG', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -117,26 +175,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  void _handlePlaceOrder(BuildContext context) {
+  Future<void> _handlePlaceOrder(
+    BuildContext context,
+    List<CartItem> selectedItems,
+    double totalPayment,
+  ) async {
     if (!_formKey.currentState!.validate()) return;
+    if (selectedItems.isEmpty) return;
+
+    setState(() => _isPlacingOrder = true);
 
     final cartProvider = context.read<CartProvider>();
     final orderProvider = context.read<OrderProvider>();
 
-    // 1. Lưu đơn hàng
-    orderProvider.placeOrder(
-      items: List.from(cartProvider.selectedItems),
-      totalAmount: cartProvider.totalPrice,
+    await orderProvider.placeOrder(
+      items: List.from(selectedItems),
+      totalAmount: totalPayment,
       address: _addressController.text,
       paymentMethod: _paymentMethod,
     );
 
-    // 2. Xóa các món đã chọn khỏi giỏ hàng
-    for (var item in cartProvider.selectedItems) {
-      cartProvider.removeItem(item);
-    }
+    await cartProvider.clearSelectedItems();
 
-    // 3. Hiện Dialog báo thành công
+    if (!context.mounted) return;
+    setState(() => _isPlacingOrder = false);
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -146,8 +209,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // Đóng dialog
-              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false); // Về Home
+              Navigator.of(context).pop();
+              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
             },
             child: const Text('VỀ TRANG CHỦ'),
           ),
