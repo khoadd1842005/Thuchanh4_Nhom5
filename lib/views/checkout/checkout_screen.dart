@@ -63,17 +63,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               const SizedBox(height: 24),
               const Text('Phương thức thanh toán', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              RadioListTile(
-                title: const Text('Thanh toán khi nhận hàng (COD)'),
-                value: 'COD',
-                groupValue: _paymentMethod,
-                onChanged: (v) => setState(() => _paymentMethod = v.toString()),
-              ),
-              RadioListTile(
-                title: const Text('Ví MoMo'),
-                value: 'Momo',
-                groupValue: _paymentMethod,
-                onChanged: (v) => setState(() => _paymentMethod = v.toString()),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _paymentMethod,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'COD',
+                    child: Text('Thanh toán khi nhận hàng (COD)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Momo',
+                    child: Text('Ví MoMo'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _paymentMethod = value);
+                },
               ),
               const SizedBox(height: 24),
               const Text('Tóm tắt đơn hàng', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),

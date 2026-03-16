@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../models/order.dart';
 
 class OrderTabBar extends StatelessWidget {
   final TabController tabController;

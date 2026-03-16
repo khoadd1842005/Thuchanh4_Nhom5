@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart' hide CarouselController;
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import '../viewmodels/cart_provider.dart';
 import '../viewmodels/home_view_model.dart';
 import '../widgets/product_card.dart';
@@ -20,7 +19,6 @@ class _HomeScreenState extends State<HomeScreen> {
   
   // TỐI ƯU: Dùng ValueNotifier thay vì setState để tránh rebuild toàn màn hình khi cuộn
   final ValueNotifier<bool> _isAppBarPinnedNotifier = ValueNotifier<bool>(false);
-  int _currentBannerIndex = 0;
 
   final List<String> _banners = [
     'https://picsum.photos/800/400?random=11',
