@@ -59,12 +59,12 @@ class CartItemWidget extends StatelessWidget {
                 width: 72,
                 height: 72,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
+                placeholder: (_, _) => Container(
                   width: 72,
                   height: 72,
                   color: Colors.grey[200],
                 ),
-                errorWidget: (_, __, ___) => const Icon(Icons.error),
+                errorWidget: (_, _, _) => const Icon(Icons.error),
               ),
             ),
             const SizedBox(width: 12),
