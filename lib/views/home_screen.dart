@@ -90,8 +90,8 @@ class _HomeScreenState extends State<HomeScreen> {
       pinned: true,
       expandedHeight: 120,
       toolbarHeight: 90,
-      backgroundColor: _isAppBarPinned ? Colors.orange : Colors.transparent,
-      elevation: 0,
+      backgroundColor: _isAppBarPinned ? Theme.of(context).primaryColor : Colors.white,
+      elevation: _isAppBarPinned ? 4 : 0,
       titleSpacing: 0,
       title: Column(
         children: [
@@ -100,12 +100,12 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'TH4 - Nhóm 5',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: _isAppBarPinned ? Colors.white : Colors.black87,
                   ),
                 ),
                 _buildCartIcon(),
@@ -118,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
               duration: const Duration(milliseconds: 260),
               height: 44,
               decoration: BoxDecoration(
-                color: _isAppBarPinned ? Colors.orange.withOpacity(0.95) : Colors.transparent,
+                color: _isAppBarPinned ? Theme.of(context).primaryColor.withOpacity(0.95) : Colors.transparent,
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   if (_isAppBarPinned) BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6, offset: Offset(0, 2)),
@@ -146,13 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
-              decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.orange, Colors.orange.withValues(alpha: 0.85)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
+          color: _isAppBarPinned ? Theme.of(context).primaryColor : Colors.white,
         ),
       ),
     );
@@ -168,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               // Navigator.pushNamed(context, '/cart');
             },
-            icon: const Icon(Icons.shopping_cart, color: Colors.white),
+            icon: Icon(Icons.shopping_cart, color: _isAppBarPinned ? Colors.white : Colors.grey[800]),
           ),
           if (count > 0)
             Positioned(
