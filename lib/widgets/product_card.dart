@@ -38,8 +38,9 @@ class ProductCard extends StatelessWidget {
                       child: CachedNetworkImage(
                         imageUrl: product.imageUrl,
                         fit: BoxFit.cover,
-                        memCacheWidth: 900,
-                        maxWidthDiskCache: 1200,
+                        // TỐI ƯU: Giảm memCacheWidth xuống 400 để hết lag
+                        memCacheWidth: 400,
+                        maxWidthDiskCache: 600,
                         width: double.infinity,
                         height: double.infinity,
                         placeholder: (context, url) => Container(
@@ -260,12 +261,7 @@ class ProductCard extends StatelessWidget {
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
                       onPressed: () {
                         if ((hasSizeOptions && selectedSize == null) || (hasColorOptions && selectedColor == null)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Vui lòng chọn đầy đủ phân loại!'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn đầy đủ phân loại!')));
                           return;
                         }
                         context.read<CartProvider>().addToCart(
@@ -274,13 +270,7 @@ class ProductCard extends StatelessWidget {
                           color: selectedColor ?? 'Mặc định',
                         );
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Đã thêm vào giỏ hàng!'),
-                            backgroundColor: Colors.green,
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã thêm vào giỏ hàng!'), backgroundColor: Colors.green));
                       },
                       child: const Text('XÁC NHẬN'),
                     ),

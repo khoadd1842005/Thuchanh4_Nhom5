@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'viewmodels/cart_provider.dart';
 import 'viewmodels/home_view_model.dart';
+import 'viewmodels/order_provider.dart';
 import 'views/cart/cart_screen.dart';
 import 'views/home_screen.dart';
 import 'views/details/product_detail_screen.dart';
+import 'views/checkout/checkout_screen.dart';
 import 'models/product.dart';
 import 'theme/app_theme.dart';
 
@@ -21,6 +23,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => HomeViewModel()..fetchProducts(isRefresh: true)),
         ChangeNotifierProvider(create: (_) => CartProvider()..loadCart()),
+        ChangeNotifierProvider(create: (_) => OrderProvider()),
       ],
       child: MaterialApp(
         title: 'Thuchanh4',
@@ -30,9 +33,12 @@ class MyApp extends StatelessWidget {
         onGenerateRoute: (settings) {
           if (settings.name == '/') return MaterialPageRoute(builder: (_) => const HomeScreen());
 
-          // Đăng ký route cho Giỏ hàng
           if (settings.name == '/cart') {
             return MaterialPageRoute(builder: (_) => const CartScreen());
+          }
+
+          if (settings.name == '/checkout') {
+            return MaterialPageRoute(builder: (_) => const CheckoutScreen());
           }
 
           if (settings.name == '/product_detail') {
