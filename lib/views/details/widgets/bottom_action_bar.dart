@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../viewmodels/home_view_model.dart';
+import '../../../viewmodels/cart_view_model.dart';
 
 class BottomActionBar extends StatelessWidget {
   final VoidCallback? onAddToCart;
@@ -10,83 +10,99 @@ class BottomActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // primary color not required here; using explicit colors for buttons
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)]),
+        height: 70,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
         child: Row(
           children: [
-            // Left half: Cart icon + badge (smaller)
-            Expanded(
-              flex: 1,
-              child: Consumer<HomeViewModel>(builder: (context, vm, child) {
-                final count = vm.cartCount;
-                return InkWell(
-                  onTap: () => Navigator.pushNamed(context, '/cart'),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        const Icon(Icons.shopping_cart_outlined, size: 20, color: Colors.black87),
-                        if (count > 0)
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
-                              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                              child: Text(count > 99 ? '99+' : '$count', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            ),
-
-            const SizedBox(width: 10),
-
-            // Right half: two action buttons inside this half (wider)
+            // Left part: Chat and Cart (1/2 width)
             Expanded(
               flex: 2,
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Chat Icon (Added for Member 2)
+                  _buildIconAction(
+                    icon: Icons.chat_outlined,
+                    label: 'Chat',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tính năng Chat đang phát triển!')),
+                      );
+                    },
+                  ),
+                  const VerticalDivider(width: 1, indent: 15, endIndent: 15),
+                  // Cart Icon with Badge (Updated logic for Member 4: "number of types")
+                  Consumer<CartViewModel>(
+                    builder: (context, vm, child) {
+                      final typeCount = vm.items.length; // "Số loại sản phẩm"
+                      return _buildIconAction(
+                        icon: Icons.shopping_cart_outlined,
+                        label: 'Giỏ hàng',
+                        badgeCount: typeCount,
+                        onTap: () => Navigator.pushNamed(context, '/cart'),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // Right part: Buy buttons (1/2 width)
+            Expanded(
+              flex: 3,
+              child: Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: onAddToCart,
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: BorderSide(color: Colors.grey.shade200),
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.add_shopping_cart, size: 18, color: Colors.black87),
-                          SizedBox(width: 8),
-                          Text('Thêm vào giỏ', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
-                        ],
+                    child: InkWell(
+                      onTap: onAddToCart,
+                      child: Container(
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFEEEE8),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
+                        ),
+                        child: const Text(
+                          'Thêm vào giỏ',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: onBuyNow,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 6,
+                    child: InkWell(
+                      onTap: onBuyNow,
+                      child: Container(
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.only(
+                            topRight: Radius.circular(4),
+                            bottomRight: Radius.circular(4),
+                          ),
+                        ),
+                        child: const Text(
+                          'Mua ngay',
+                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
                       ),
-                      child: const Text('Mua ngay', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white, fontSize: 16)),
                     ),
                   ),
                 ],
@@ -94,6 +110,49 @@ class BottomActionBar extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildIconAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    int badgeCount = 0,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(icon, color: Colors.orange, size: 24),
+              if (badgeCount > 0)
+                Positioned(
+                  right: -6,
+                  top: -6,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      badgeCount > 99 ? '99+' : '$badgeCount',
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(fontSize: 10, color: Colors.black87)),
+        ],
       ),
     );
   }

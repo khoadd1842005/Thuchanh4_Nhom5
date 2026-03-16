@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/product.dart';
-import '../../viewmodels/home_view_model.dart';
+import '../../viewmodels/cart_view_model.dart';
 import 'widgets/image_slider.dart';
 import 'widgets/bottom_action_bar.dart';
 
@@ -24,7 +24,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final currency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
     return Scaffold(
-      appBar: AppBar(title: Text('Chi tiết sản phẩm')),
+      appBar: AppBar(title: const Text('Chi tiết sản phẩm')),
       bottomNavigationBar: BottomActionBar(
         onAddToCart: () => _showVariantSheet(),
         onBuyNow: () => _showVariantSheet(buyNow: true),
@@ -33,7 +33,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: Column(
           children: [
             Hero(
-              tag: widget.product.id,
+              tag: 'product_${widget.product.id}',
               child: ImageSlider(images: widget.product.images.isNotEmpty ? widget.product.images : [widget.product.imageUrl]),
             ),
 
@@ -42,9 +42,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               offset: const Offset(0, -24),
               child: Container(
                 width: double.infinity,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+                  borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
                 ),
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
                 child: Column(
@@ -210,7 +210,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: List.generate(colors.length, (i) {
-                      final color = Color(int.tryParse(colors[i].replaceAll('#', '0xff')) ?? 0xff000000);
+                      final colorString = colors[i];
+                      final color = Color(int.tryParse(colorString.replaceAll('#', '0xff')) ?? 0xff000000);
                       final selected = selectedColor == i;
                       return GestureDetector(
                         onTap: () => setState(() => selectedColor = i),
@@ -249,17 +250,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            // add to cart first on the parent context so listeners update immediately
-                            parentContext.read<HomeViewModel>().addToCart(widget.product, quantity: qty);
-                            // then close the sheet
+                            parentContext.read<CartViewModel>().addToCart(
+                              product: widget.product,
+                              size: sizes[selectedSize],
+                              color: colors[selectedColor],
+                            );
+                            
                             Navigator.of(context).pop();
-                            // show confirmation on the parent scaffold
-                            ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(content: Text('Thêm thành công')));
+                            ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(content: Text('Thêm thành công'), backgroundColor: Colors.green));
+                            
                             if (buyNow) {
-                              ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(content: Text('Thanh toán tạm thời (demo)')));
+                               Navigator.pushNamed(parentContext, '/cart');
                             }
                           },
-                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
                           child: Text(buyNow ? 'Mua ngay' : 'Xác nhận'),
                         ),
                       ),

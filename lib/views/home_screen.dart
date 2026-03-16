@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide CarouselController;
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import '../viewmodels/cart_view_model.dart';
 import '../viewmodels/home_view_model.dart';
 import '../widgets/product_card.dart';
 
@@ -16,6 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey _searchKey = GlobalKey();
+  bool _isAutoPrefetching = false;
   int _currentBannerIndex = 0;
   bool _isAppBarPinned = false;
 
@@ -44,32 +46,75 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(() {
-      if (_scrollController.offset > 50 && !_isAppBarPinned) {
-        setState(() => _isAppBarPinned = true);
-      } else if (_scrollController.offset <= 50 && _isAppBarPinned) {
-        setState(() => _isAppBarPinned = false);
-      }
+    _scrollController.addListener(_onScroll);
 
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-        context.read<HomeViewModel>().fetchProducts();
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureInitialScrollableContent();
     });
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
+  void _onScroll() {
+    if (!mounted || !_scrollController.hasClients) return;
+
+    if (_scrollController.offset > 50 && !_isAppBarPinned) {
+      setState(() => _isAppBarPinned = true);
+    } else if (_scrollController.offset <= 50 && _isAppBarPinned) {
+      setState(() => _isAppBarPinned = false);
+    }
+
+    final position = _scrollController.position;
+    const preloadThreshold = 300.0;
+    final shouldLoadMore = position.pixels >= position.maxScrollExtent - preloadThreshold;
+    if (shouldLoadMore) {
+      _loadMoreProducts();
+    }
+  }
+
+  Future<void> _loadMoreProducts() async {
+    if (!mounted) return;
+    await context.read<HomeViewModel>().fetchProducts();
+  }
+
+  Future<void> _ensureInitialScrollableContent() async {
+    if (!mounted || _isAutoPrefetching) return;
+    if (!_scrollController.hasClients) return;
+
+    _isAutoPrefetching = true;
+    try {
+      final viewModel = context.read<HomeViewModel>();
+      var attempts = 0;
+
+      while (mounted && attempts < 3) {
+        if (viewModel.isLoading || !viewModel.hasMore) break;
+        if (_scrollController.position.maxScrollExtent > 0) break;
+
+        attempts++;
+        await viewModel.fetchProducts();
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+    } finally {
+      _isAutoPrefetching = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3EFE8),
       body: RefreshIndicator(
-        onRefresh: () => context.read<HomeViewModel>().fetchProducts(isRefresh: true),
+        onRefresh: () async {
+          await context.read<HomeViewModel>().fetchProducts(isRefresh: true);
+          if (mounted) {
+            await _ensureInitialScrollableContent();
+          }
+        },
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
@@ -88,13 +133,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildAppBar() {
     return SliverAppBar(
       pinned: true,
-      expandedHeight: 120,
-      toolbarHeight: 90,
-      backgroundColor: _isAppBarPinned ? Colors.orange : Colors.transparent,
+      expandedHeight: 120, // Tăng lên để đủ chỗ cho tiêu đề định danh
+      toolbarHeight: 90,   // Tăng để chứa 2 dòng: Tiêu đề và SearchBar
+      backgroundColor: _isAppBarPinned ? Colors.orange : Colors.orange.withValues(alpha: 0.1),
       elevation: 0,
       titleSpacing: 0,
       title: Column(
         children: [
+          // Dòng 1: Định danh nhóm (Yêu cầu bắt buộc)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
@@ -112,16 +158,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+          // Dòng 2: Thanh tìm kiếm
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 260),
-              height: 44,
+            child: Container(
+              height: 40,
               decoration: BoxDecoration(
-                color: _isAppBarPinned ? Colors.orange.withOpacity(0.95) : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
                 boxShadow: [
-                  if (_isAppBarPinned) BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6, offset: Offset(0, 2)),
+                  if (!_isAppBarPinned)
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)
                 ],
               ),
               child: TextField(
@@ -130,14 +177,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 textAlignVertical: TextAlignVertical.center,
                 autocorrect: false,
                 enableSuggestions: false,
-                style: TextStyle(fontSize: 14, color: _isAppBarPinned ? Colors.white : Colors.black87),
-                decoration: InputDecoration(
+                style: const TextStyle(fontSize: 14, color: Colors.black),
+                decoration: const InputDecoration(
                   isDense: true,
                   hintText: 'Tìm kiếm sản phẩm...',
-                  hintStyle: TextStyle(fontSize: 13, color: _isAppBarPinned ? Colors.white70 : Colors.grey),
-                  prefixIcon: Icon(Icons.search, color: _isAppBarPinned ? Colors.white : Colors.grey, size: 20),
+                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                  prefixIcon: Icon(Icons.search, color: Colors.grey, size: 20),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  contentPadding: EdgeInsets.symmetric(vertical: 10),
                 ),
               ),
             ),
@@ -146,9 +193,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
-              decoration: BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.orange, Colors.orange.withValues(alpha: 0.85)],
+              colors: [Colors.orange, Colors.orange.withValues(alpha: 0.8)],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -159,38 +206,39 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCartIcon() {
-    return Consumer<HomeViewModel>(builder: (context, vm, child) {
-      final count = vm.cartCount;
-      return Stack(
-        alignment: Alignment.center,
-        children: [
-          IconButton(
-            onPressed: () {
-              // Navigator.pushNamed(context, '/cart');
-            },
-            icon: const Icon(Icons.shopping_cart, color: Colors.white),
-          ),
-          if (count > 0)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                child: Text(
-                  count > 99 ? '99+' : '$count',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+    return Consumer<CartViewModel>(
+      builder: (context, cartViewModel, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/cart');
+              },
+              icon: const Icon(Icons.shopping_cart, color: Colors.white),
+            ),
+            if (cartViewModel.totalItems > 0)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  child: Text(
+                    '${cartViewModel.totalItems}',
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
-            ),
-        ],
-      );
-    });
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildBannerCarousel() {
@@ -198,7 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         CarouselSlider(
           options: CarouselOptions(
-            height: 200,
+            height: 180,
             autoPlay: true,
             viewportFraction: 1.0,
             onPageChanged: (index, reason) {
@@ -208,35 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
           items: _banners.map((url) {
             return Builder(
               builder: (BuildContext context) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.network(url, fit: BoxFit.cover, width: MediaQuery.of(context).size.width),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: [Colors.black.withValues(alpha: 0.18), Colors.transparent], begin: Alignment.bottomCenter, end: Alignment.topCenter),
-                          ),
-                        ),
-                        Positioned(
-                          left: 18,
-                          bottom: 18,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text('KHUYẾN MÃI XUÂN', style: TextStyle(color: Colors.white70, letterSpacing: 1.5, fontSize: 12)),
-                              SizedBox(height: 6),
-                              Text('Mang mùa xuân vào từng bước chân', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+                return Image.network(url, fit: BoxFit.cover, width: MediaQuery.of(context).size.width);
               },
             );
           }).toList(),
@@ -248,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
           effect: const ScrollingDotsEffect(
             dotWidth: 8,
             dotHeight: 8,
-            activeDotColor: Colors.black,
+            activeDotColor: Colors.orange,
             dotColor: Colors.grey,
           ),
         ),
@@ -256,39 +276,86 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-
   Widget _buildCategoryGrid() {
-    return Container(
-      height: 200,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: GridView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 1.2,
-        ),
-        itemCount: _categories.length,
-        itemBuilder: (context, index) {
-          return Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+
+        final contentMaxWidth = width >= 1400
+            ? 1280.0
+            : width >= 1100
+                ? 1040.0
+                : width;
+
+        int crossAxisCount;
+        if (width >= 1200) {
+          crossAxisCount = 6;
+        } else if (width >= 900) {
+          crossAxisCount = 5;
+        } else if (width >= 700) {
+          crossAxisCount = 4;
+        } else {
+          crossAxisCount = 3;
+        }
+
+        const spacing = 12.0;
+        final effectiveWidth = contentMaxWidth - 32;
+        final itemWidth = (effectiveWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
+        final iconBoxSize = (itemWidth * 0.58).clamp(34.0, 62.0).toDouble();
+        final iconSize = (iconBoxSize * 0.52).clamp(16.0, 28.0).toDouble();
+        final categoryFontSize = width >= 1100 ? 13.0 : width >= 760 ? 12.0 : 11.0;
+        final rows = (_categories.length / crossAxisCount).ceil();
+        final sectionHeight = rows * 96.0 + (rows - 1) * spacing + 20;
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: contentMaxWidth),
+            child: SizedBox(
+              height: sectionHeight,
+              child: GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisSpacing: spacing,
+                  crossAxisSpacing: spacing,
+                  childAspectRatio: itemWidth / 96.0,
                 ),
-                child: Icon(_categories[index]['icon'], color: Colors.orange),
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: iconBoxSize,
+                        height: iconBoxSize,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(iconBoxSize * 0.28),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          _categories[index]['icon'],
+                          color: Colors.orange,
+                          size: iconSize,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _categories[index]['name'],
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: categoryFontSize),
+                      ),
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 4),
-              Text(_categories[index]['name'], style: const TextStyle(fontSize: 11)),
-            ],
-          );
-        },
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -307,19 +374,58 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildProductGrid() {
     return Consumer<HomeViewModel>(
       builder: (context, viewModel, child) {
+        if (viewModel.products.isEmpty && viewModel.errorMessage != null) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                viewModel.errorMessage!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          );
+        }
+
         return SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.7,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => ProductCard(product: viewModel.products[index]),
-              childCount: viewModel.products.length,
-            ),
+          sliver: SliverLayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.crossAxisExtent;
+
+              int crossAxisCount;
+              if (width >= 1400) {
+                crossAxisCount = 6;
+              } else if (width >= 1100) {
+                crossAxisCount = 5;
+              } else if (width >= 850) {
+                crossAxisCount = 4;
+              } else if (width >= 620) {
+                crossAxisCount = 3;
+              } else {
+                crossAxisCount = 2;
+              }
+
+              final itemWidth = (width - (crossAxisCount - 1) * 8) / crossAxisCount;
+              final targetItemHeight = itemWidth < 180
+                  ? 320.0
+                  : itemWidth < 230
+                      ? 340.0
+                      : 360.0;
+              final childAspectRatio = itemWidth / targetItemHeight;
+
+              return SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  childAspectRatio: childAspectRatio,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => ProductCard(product: viewModel.products[index]),
+                  childCount: viewModel.products.length,
+                ),
+              );
+            },
           ),
         );
       },
