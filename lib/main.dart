@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'viewmodels/cart_view_model.dart';
+import 'viewmodels/cart_provider.dart';
 import 'viewmodels/home_view_model.dart';
-import 'views/cart_screen.dart';
+import 'views/cart/cart_screen.dart';
 import 'views/home_screen.dart';
 import 'views/details/product_detail_screen.dart';
 import 'models/product.dart';
@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => HomeViewModel()..fetchProducts(isRefresh: true)),
-        ChangeNotifierProvider(create: (_) => CartViewModel()..loadCart()),
+        ChangeNotifierProvider(create: (_) => CartProvider()..loadCart()),
       ],
       child: MaterialApp(
         title: 'Thuchanh4',

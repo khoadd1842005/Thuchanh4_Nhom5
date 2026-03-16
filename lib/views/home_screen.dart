@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' hide CarouselController;
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import '../viewmodels/cart_view_model.dart';
+import 'package:flutter/foundation.dart';
+import '../viewmodels/cart_provider.dart';
 import '../viewmodels/home_view_model.dart';
 import '../widgets/product_card.dart';
+import '../models/product.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,10 +20,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final ValueNotifier<int> _bannerIndexNotifier = ValueNotifier<int>(0);
   final GlobalKey _searchKey = GlobalKey();
   bool _isAutoPrefetching = false;
-  int _currentBannerIndex = 0;
   bool _isAppBarPinned = false;
+  DateTime? _lastLoadMoreAt;
+  Timer? _searchDebounce;
 
   final List<String> _banners = [
     'https://picsum.photos/800/400?random=11',
@@ -58,6 +64,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
+    _searchDebounce?.cancel();
+    _bannerIndexNotifier.dispose();
     super.dispose();
   }
 
@@ -80,7 +88,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadMoreProducts() async {
     if (!mounted) return;
-    await context.read<HomeViewModel>().fetchProducts();
+
+    final viewModel = context.read<HomeViewModel>();
+    if (viewModel.isLoading || !viewModel.hasMore || viewModel.searchQuery.isNotEmpty) {
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastLoadMoreAt != null && now.difference(_lastLoadMoreAt!) < const Duration(milliseconds: 800)) {
+      return;
+    }
+    _lastLoadMoreAt = now;
+
+    await viewModel.fetchProducts();
   }
 
   Future<void> _ensureInitialScrollableContent() async {
@@ -92,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final viewModel = context.read<HomeViewModel>();
       var attempts = 0;
 
-      while (mounted && attempts < 3) {
+      while (mounted && attempts < 2) {
         if (viewModel.isLoading || !viewModel.hasMore) break;
         if (_scrollController.position.maxScrollExtent > 0) break;
 
@@ -117,6 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         child: CustomScrollView(
           controller: _scrollController,
+          cacheExtent: 1200,
           slivers: [
             _buildAppBar(),
             SliverToBoxAdapter(child: _buildBannerCarousel()),
@@ -177,6 +198,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 textAlignVertical: TextAlignVertical.center,
                 autocorrect: false,
                 enableSuggestions: false,
+                onChanged: (value) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                    if (!mounted) return;
+                    context.read<HomeViewModel>().setSearchQuery(value);
+                  });
+                },
                 style: const TextStyle(fontSize: 14, color: Colors.black),
                 decoration: const InputDecoration(
                   isDense: true,
@@ -206,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCartIcon() {
-    return Consumer<CartViewModel>(
+    return Consumer<CartProvider>(
       builder: (context, cartViewModel, child) {
         return Stack(
           alignment: Alignment.center,
@@ -250,7 +278,7 @@ class _HomeScreenState extends State<HomeScreen> {
             autoPlay: true,
             viewportFraction: 1.0,
             onPageChanged: (index, reason) {
-              setState(() => _currentBannerIndex = index);
+              _bannerIndexNotifier.value = index;
             },
           ),
           items: _banners.map((url) {
@@ -262,15 +290,20 @@ class _HomeScreenState extends State<HomeScreen> {
           }).toList(),
         ),
         const SizedBox(height: 8),
-        AnimatedSmoothIndicator(
-          activeIndex: _currentBannerIndex,
-          count: _banners.length,
-          effect: const ScrollingDotsEffect(
-            dotWidth: 8,
-            dotHeight: 8,
-            activeDotColor: Colors.orange,
-            dotColor: Colors.grey,
-          ),
+        ValueListenableBuilder<int>(
+          valueListenable: _bannerIndexNotifier,
+          builder: (context, index, _) {
+            return AnimatedSmoothIndicator(
+              activeIndex: index,
+              count: _banners.length,
+              effect: const ScrollingDotsEffect(
+                dotWidth: 8,
+                dotHeight: 8,
+                activeDotColor: Colors.orange,
+                dotColor: Colors.grey,
+              ),
+            );
+          },
         ),
       ],
     );
@@ -372,15 +405,33 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProductGrid() {
-    return Consumer<HomeViewModel>(
-      builder: (context, viewModel, child) {
-        if (viewModel.products.isEmpty && viewModel.errorMessage != null) {
+    return Selector<HomeViewModel, List<Product>>(
+      selector: (_, viewModel) => viewModel.displayedProducts,
+      shouldRebuild: (previous, next) => !listEquals(previous, next),
+      builder: (context, displayedProducts, child) {
+        final errorMessage = context.select<HomeViewModel, String?>((vm) => vm.errorMessage);
+
+        if (displayedProducts.isEmpty && errorMessage != null) {
           return SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                viewModel.errorMessage!,
+                errorMessage,
                 style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          );
+        }
+
+        if (displayedProducts.isEmpty) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(
+                child: Text(
+                  'Không tìm thấy sản phẩm phù hợp',
+                  style: TextStyle(color: Colors.grey),
+                ),
               ),
             ),
           );
@@ -421,8 +472,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisSpacing: 8,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => ProductCard(product: viewModel.products[index]),
-                  childCount: viewModel.products.length,
+                  (context, index) => ProductCard(product: displayedProducts[index]),
+                  childCount: displayedProducts.length,
+                  addAutomaticKeepAlives: false,
+                  addRepaintBoundaries: true,
                 ),
               );
             },

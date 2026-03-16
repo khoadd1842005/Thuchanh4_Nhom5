@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/product.dart';
-import '../../viewmodels/cart_view_model.dart';
+import '../../viewmodels/cart_provider.dart';
 import 'widgets/image_slider.dart';
 import 'widgets/bottom_action_bar.dart';
 
@@ -250,14 +250,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            parentContext.read<CartViewModel>().addToCart(
+                            parentContext.read<CartProvider>().addToCart(
                               product: widget.product,
                               size: sizes[selectedSize],
                               color: colors[selectedColor],
                             );
                             
                             Navigator.of(context).pop();
-                            ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(content: Text('Thêm thành công'), backgroundColor: Colors.green));
+                            ScaffoldMessenger.of(parentContext).showSnackBar(
+                              const SnackBar(
+                                content: Text('Thêm thành công'),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
                             
                             if (buyNow) {
                                Navigator.pushNamed(parentContext, '/cart');

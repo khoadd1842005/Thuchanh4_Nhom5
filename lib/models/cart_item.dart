@@ -5,12 +5,14 @@ class CartItem {
   final String selectedSize;
   final String selectedColor;
   final int quantity;
+  final bool isSelected;
 
   const CartItem({
     required this.product,
     required this.selectedSize,
     required this.selectedColor,
     this.quantity = 1,
+    this.isSelected = true,
   });
 
   CartItem copyWith({
@@ -18,12 +20,14 @@ class CartItem {
     String? selectedSize,
     String? selectedColor,
     int? quantity,
+    bool? isSelected,
   }) {
     return CartItem(
       product: product ?? this.product,
       selectedSize: selectedSize ?? this.selectedSize,
       selectedColor: selectedColor ?? this.selectedColor,
       quantity: quantity ?? this.quantity,
+      isSelected: isSelected ?? this.isSelected,
     );
   }
 
@@ -33,6 +37,7 @@ class CartItem {
       'selectedSize': selectedSize,
       'selectedColor': selectedColor,
       'quantity': quantity,
+      'isSelected': isSelected,
     };
   }
 
@@ -42,6 +47,7 @@ class CartItem {
       selectedSize: (json['selectedSize'] ?? '').toString(),
       selectedColor: (json['selectedColor'] ?? '').toString(),
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+      isSelected: json['isSelected'] as bool? ?? true,
     );
   }
 

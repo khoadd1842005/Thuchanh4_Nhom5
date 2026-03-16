@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../viewmodels/cart_view_model.dart';
+import '../../../viewmodels/cart_provider.dart';
 
 class BottomActionBar extends StatelessWidget {
   final VoidCallback? onAddToCart;
@@ -38,13 +38,16 @@ class BottomActionBar extends StatelessWidget {
                     label: 'Chat',
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Tính năng Chat đang phát triển!')),
+                        const SnackBar(
+                          content: Text('Tính năng Chat đang phát triển!'),
+                          duration: Duration(seconds: 2),
+                        ),
                       );
                     },
                   ),
                   const VerticalDivider(width: 1, indent: 15, endIndent: 15),
                   // Cart Icon with Badge (Updated logic for Member 4: "number of types")
-                  Consumer<CartViewModel>(
+                  Consumer<CartProvider>(
                     builder: (context, vm, child) {
                       final typeCount = vm.items.length; // "Số loại sản phẩm"
                       return _buildIconAction(
