@@ -6,7 +6,7 @@ class BottomActionBar extends StatelessWidget {
   final VoidCallback? onAddToCart;
   final VoidCallback? onBuyNow;
 
-  const BottomActionBar({Key? key, this.onAddToCart, this.onBuyNow}) : super(key: key);
+  const BottomActionBar({super.key, this.onAddToCart, this.onBuyNow});
 
   @override
   Widget build(BuildContext context) {
